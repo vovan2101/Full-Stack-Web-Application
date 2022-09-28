@@ -1,7 +1,9 @@
 from enum import unique
 from app import db, ma
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
+import base64
+import os
 
 
 
@@ -16,16 +18,48 @@ class User(db.Model):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_password(kwargs['password'])
+        self.password = generate_password_hash(kwargs['password'])
         db.session.add(self)
         db.session.commit()
+
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
     
-    def set_password(self, password):
-        self.password = generate_password_hash(password)
+
+    def get_token(self, expires_in = 3600):
+        now = datetime.utcnow()
+        if self.token and self.token_expiration > now + timedelta(minutes=1):
+            return self.token
+        self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
+        self.token_expiration = now + timedelta(seconds=expires_in)
         db.session.commit()
+        return self.token
+
+    
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+
+    def update(self, data):
+        for field in data:
+            if field not in {'username', 'email', 'password', 'is_admin', 'first_name'}:
+                continue
+            if field == 'password':
+                setattr(self, field, generate_password_hash(data[field]))
+            else:
+                setattr(self, field, data[field])
+        db.session.commit()
+
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'date_created': self.date_created,
+        }
 
 
 class UserSchema(ma.Schema):

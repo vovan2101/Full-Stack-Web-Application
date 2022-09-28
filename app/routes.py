@@ -1,6 +1,33 @@
 from app import app,db
 from flask import jsonify, request
-from app.models import Articles, ArticlesSchema, article_chema , articles_chema
+from app.models import Articles, ArticlesSchema, article_chema , articles_chema, User
+
+
+@app.route('/users', methods = ['POST'])
+def create_user():
+    data = request.json
+    for field in ['username', 'email', 'password']:
+        if field not in data:
+            return jsonify({'error': f"You are missing the {field} field"}), 400
+    
+    username = data['username']
+    email = data['email']
+
+    user_exists = User.query.filter((User.username == username) | (User.email == email)).all()
+    if user_exists:
+        return jsonify({'error': f"User with username {username} or email {email} already exists"}), 400
+    new_user = User(**data)
+    return jsonify(new_user.to_dict())
+
+
+
+
+
+
+
+
+
+
 
 
 @app.route('/get', methods = ['GET'])
