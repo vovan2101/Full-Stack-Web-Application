@@ -1,4 +1,3 @@
-from crypt import methods
 from app import app,db
 from flask import jsonify, request
 from app.models import Articles, ArticlesSchema, article_chema , articles_chema
