@@ -1,13 +1,14 @@
 from enum import unique
-from app import db, ma
+from app import db, ma, login
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import base64
 import os
+from flask_login import UserMixin
 
 
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key = True)
     username = db.Column(db.String(20), nullable = False, unique = True)
     email = db.Column(db.String(25), nullable = False, unique = True)
@@ -61,12 +62,17 @@ class User(db.Model):
             'date_created': self.date_created,
         }
 
+@login.user_loader
+def load_user(user_id):
+    return User.query.get(user_id)
+
 
 class UserSchema(ma.Schema):
     class Meta:
         fields = ('id', 'username', 'email', 'article', 'data_created')
 
 user_chema = UserSchema()
+
 
 
 class Articles(db.Model):

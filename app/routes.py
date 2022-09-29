@@ -1,3 +1,4 @@
+from crypt import methods
 from app import app,db
 from flask import jsonify, request
 from app.models import Articles, ArticlesSchema, article_chema , articles_chema, User
@@ -20,12 +21,10 @@ def create_user():
     return jsonify(new_user.to_dict())
 
 
-
-
-
-
-
-
+@app.route('/users', methods = ['GET', 'POST'])
+def login():
+    data = request.json
+    for field 
 
 
 
