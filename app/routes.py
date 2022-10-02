@@ -1,7 +1,11 @@
-from crypt import methods
+from collections import UserList
+from multiprocessing import AuthenticationError
 from app import app,db
-from flask import jsonify, request
-from app.models import Articles, ArticlesSchema, article_chema , articles_chema, User
+from flask import jsonify, request, make_response, flash
+from app.models import Articles, ArticlesSchema, article_chema , articles_chema, User, check_password_hash
+
+
+
 
 
 @app.route('/users', methods = ['POST'])
@@ -10,22 +14,36 @@ def create_user():
     for field in ['username', 'email', 'password']:
         if field not in data:
             return jsonify({'error': f"You are missing the {field} field"}), 400
-    
+
     username = data['username']
     email = data['email']
 
     user_exists = User.query.filter((User.username == username) | (User.email == email)).all()
     if user_exists:
         return jsonify({'error': f"User with username {username} or email {email} already exists"}), 400
-    new_user = User(**data)
-    return jsonify(new_user.to_dict())
+    elif len(username) < 4:
+        flash('Username must be greater than 3 characters.')
+    else:   
+        new_user = User(**data)
+        return jsonify(new_user.to_dict())
 
 
-@app.route('/users', methods = ['GET', 'POST'])
+
+@app.route('/login', methods = ['GET', 'POST'])
 def login():
-    data = request.json
-    for field 
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
 
+        user = User.query.filter_by(username=username).first()
+        if user:
+            if check_password_hash(user.password, password):
+                flash('Logged in Successully!', category='success')
+            else:
+                flash('Incorrect password, try again.', category='danger')
+        else:
+            flash('Username does not exist.', category='warning')
+        
 
 
 

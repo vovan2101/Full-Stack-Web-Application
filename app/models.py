@@ -27,16 +27,6 @@ class User(db.Model, UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password, password)
     
-
-    def get_token(self, expires_in = 3600):
-        now = datetime.utcnow()
-        if self.token and self.token_expiration > now + timedelta(minutes=1):
-            return self.token
-        self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
-        self.token_expiration = now + timedelta(seconds=expires_in)
-        db.session.commit()
-        return self.token
-
     
     def delete(self):
         db.session.delete(self)
