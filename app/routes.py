@@ -1,14 +1,14 @@
-from collections import UserList
-from multiprocessing import AuthenticationError
-from app import app,db
+from crypt import methods
+import json
+from lib2to3.pgen2 import token
+from locale import currency
+from app import app,db, basic_auth, token_auth
 from flask import jsonify, request, make_response, flash
-from app.models import Articles, ArticlesSchema, article_chema , articles_chema, User, check_password_hash
+from app.models import Articles, User, check_password_hash
 
 
 
-
-
-@app.route('/users', methods = ['POST'])
+@app.route('/users', methods = ['POST', 'GET'])
 def create_user():
     data = request.json
     for field in ['username', 'email', 'password']:
@@ -28,69 +28,88 @@ def create_user():
         return jsonify(new_user.to_dict())
 
 
+@app.route('/token', methods = ['POST', 'GET'])
+@basic_auth.login_required
+def get_token():
+    user = basic_auth.current_user()
+    token = user.get_token()
+    return jsonify({'token': token})
+  
 
-@app.route('/login', methods = ['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+@app.route('/users/<int:id>', methods = ["PUT"])
+@token_auth.login_required
+def update_user(id):
+    current_user = token_auth.current_user()
+    if current_user.id != id:
+        return jsonify({'error': 'You do not have access to update this user'}), 403
+    user =  User.query.get_or_404(id)
+    data = request.json
+    user.update(data)
+    return jsonify(user.to_dict())
 
-        user = User.query.filter_by(username=username).first()
-        if user:
-            if check_password_hash(user.password, password):
-                flash('Logged in Successully!', category='success')
-            else:
-                flash('Incorrect password, try again.', category='danger')
-        else:
-            flash('Username does not exist.', category='warning')
-        
 
+@app.route('/users/<int:id>', methods = ['DELETE'])
+@token_auth.login_required
+def delete_user(id):
+    current_user = token_auth.current_user()
+    if current_user.id != id:
+        return jsonify({'error': 'You do not have access to delete this user'}), 403
+    user_to_delete = User.query.get_or_404(id)
+    user_to_delete.delete()
+    return jsonify({'success': f'{user_to_delete.username} has been deleted'})
+
+
+@app.route('/me')
+@token_auth.login_required
+def me():
+    return token_auth.current_user().to_dict()
 
 
 @app.route('/get', methods = ['GET'])
 def get_articles():
-    all_articles = Articles.query.all()
-    results = articles_chema.dump(all_articles)
-    return jsonify(results)
+    articles = Articles.query.all()
+    return jsonify([a.to_dict() for a in articles])
 
 
-@app.route('/get/<id>/', methods = ['GET'])
+@app.route('/get/<int:id>', methods = ['GET'])
 def article_details(id):
-    article = Articles.query.get(id)
-    return article_chema.jsonify(article)
+    article = Articles.query.get_or_404(id)
+    return jsonify(article.to_dict())
 
 
-@app.route('/add', methods= ['POST'])
-def add_article():
-    title = request.json['title']
-    body = request.json['body']
-    image_url = request.json['image_url']
+@app.route('/articles', methods = ['POST'])
+@token_auth.login_required
+def create_article():
+    if not request.is_json:
+        return jsonify({'error': 'Please send a body'}), 400
+    data = request.json
+    for field in ['title', 'body']:
+        if field not in data:
+            return jsonify({'error': f'You are missing the {field} field'}),400
+    current_user = token_auth.current_user()
+    data['user_id'] = current_user.id
+    new_article = Articles(**data)
+    return jsonify(new_article.to_dict()),201
 
-    articles = Articles(title, body, image_url)
-    db.session.add(articles)
-    db.session.commit()
-    return article_chema.jsonify(articles)
 
-
-@app.route('/update/<id>/', methods = ['PUT'])
+@app.route('/articles/<int:id>', methods = ['PUT'])
+@token_auth.login_required
 def update_article(id):
-    article = Articles.query.get(id)
-
-    title = request.json['title']
-    body = request.json['body']
-    image_url = request.json['image_url']
-
-    article.title = title
-    article.body = body
-    article.image_url = image_url
-
-    db.session.commit()
-    return article_chema.jsonify(article)
+    article = Articles.query.get_or_404(id)
+    user = token_auth.current_user()
+    if user.id != article.user_id:
+        return jsonify({'error': 'You are not allowed to edit this article'}),403
+    data = request.json
+    article.update(data)
+    return jsonify(article.to_dict())
 
 
-@app.route('/delete/<id>/', methods = ['DELETE'])
+@app.route('/articles/<int:id>', methods = ['DELETE'])
+@token_auth.login_required
 def delete_article(id):
-    article = Articles.query.get(id)
-    db.session.delete(article)
-    db.session.commit()
-    return article_chema.jsonify(article)
+    article = Articles.query.get_or_404(id)
+    user = token_auth.current_user()
+    if user.id != article.user_id:
+        return jsonify({'error': 'You are not allowed to delete this article'}),403
+    article.delete()
+    return jsonify({'success': f'{article.title} has been deleted'})

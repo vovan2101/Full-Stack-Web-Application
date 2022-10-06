@@ -1,19 +1,18 @@
-from enum import unique
-from app import db, ma, login
+from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import base64
 import os
-from flask_login import UserMixin
 
 
-
-class User(db.Model, UserMixin):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     username = db.Column(db.String(20), nullable = False, unique = True)
     email = db.Column(db.String(25), nullable = False, unique = True)
     password = db.Column(db.String(256), nullable = False)
     date_created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    token = db.Column(db.String(32), unique = True, inedx = True)
+    token_expiration = db.Column(db.DateTime)
     article = db.relationship('Articles', backref = 'author')
 
 
@@ -28,6 +27,16 @@ class User(db.Model, UserMixin):
         return check_password_hash(self.password, password)
     
     
+    def get_token(self):
+        now = datetime.utcnow()
+        if self.token and self.token_expiration > now + timedelta(minutes=1):
+            return self.token
+        self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
+        self.token_expiration = now + timedelta(hours=24)
+        db.session.commit()
+        return self.token
+        
+
     def delete(self):
         db.session.delete(self)
         db.session.commit()
@@ -35,7 +44,7 @@ class User(db.Model, UserMixin):
 
     def update(self, data):
         for field in data:
-            if field not in {'username', 'email', 'password', 'is_admin', 'first_name'}:
+            if field not in {'username', 'email', 'password'}:
                 continue
             if field == 'password':
                 setattr(self, field, generate_password_hash(data[field]))
@@ -52,17 +61,6 @@ class User(db.Model, UserMixin):
             'date_created': self.date_created,
         }
 
-@login.user_loader
-def load_user(user_id):
-    return User.query.get(user_id)
-
-
-class UserSchema(ma.Schema):
-    class Meta:
-        fields = ('id', 'username', 'email', 'article', 'data_created')
-
-user_chema = UserSchema()
-
 
 
 class Articles(db.Model):
@@ -71,18 +69,31 @@ class Articles(db.Model):
     body = db.Column(db.Text(), nullable = False)
     image_url = db.Column(db.String(300))
     date_created = db.Column(db.DateTime, nullable=False, default = datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
 
 
-    def __init__(self, title, body, image_url):
-        self.title = title
-        self.body = body
-        self.image_url = image_url
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        db.session.add(self)
+        db.session.commit()
 
-class ArticlesSchema(ma.Schema):
-    class Meta:
-        fields = ('id', 'title', 'body', 'image_url', 'date_created', 'user_id')
+    def update(self, data):
+        for field in data:
+            if field not in {'title', 'body', 'image_url', 'user_id'}:
+                continue
+            setattr(self, field, data[field])
+        db.session.commit()
 
-article_chema = ArticlesSchema()
-articles_chema = ArticlesSchema(many=True)
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'body': self.body,
+            'image_url': self.image_url,
+            'date_created': self.date_created,
+            'author': User.query.get(self.user_id).to_dict()
+        }
