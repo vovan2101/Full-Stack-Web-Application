@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import base64
 import os
+from app import basic_auth, token_auth
 
 
 class User(db.Model):
@@ -61,6 +62,19 @@ class User(db.Model):
             'date_created': self.date_created,
         }
 
+
+@basic_auth.verify_password
+def verify(username, password):
+    user = User.query.filter_by(username = username).first()
+    if user and user.check_password(password):
+        return user
+
+
+@token_auth.verify_token
+def verify(token):
+    user = User.query.filter_by(token = token).first()
+    if user and user.token_expiration > datetime.utcnow():
+        return user  
 
 
 class Articles(db.Model):
