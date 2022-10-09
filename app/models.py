@@ -12,7 +12,7 @@ class User(db.Model):
     email = db.Column(db.String(25), nullable = False, unique = True)
     password = db.Column(db.String(256), nullable = False)
     date_created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    token = db.Column(db.String(32), unique = True, inedx = True)
+    token = db.Column(db.String(32), unique = True, index = True)
     token_expiration = db.Column(db.DateTime)
     article = db.relationship('Articles', backref = 'author')
 
@@ -63,18 +63,18 @@ class User(db.Model):
         }
 
 
-@basic_auth.verify_password
-def verify(username, password):
-    user = User.query.filter_by(username = username).first()
-    if user and user.check_password(password):
-        return user
-
 
 @token_auth.verify_token
 def verify(token):
     user = User.query.filter_by(token = token).first()
     if user and user.token_expiration > datetime.utcnow():
         return user  
+
+@basic_auth.verify_password
+def verify(username, password):
+    user = User.query.filter_by(username = username).first()
+    if user and user.check_password(password):
+        return user
 
 
 class Articles(db.Model):

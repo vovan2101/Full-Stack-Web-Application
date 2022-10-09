@@ -21,3 +21,4 @@ token_auth = HTTPTokenAuth
 
 db = SQLAlchemy(app)
 migrate = Migrate(app,db)
+
