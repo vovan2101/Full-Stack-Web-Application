@@ -1,8 +1,8 @@
+import os
+import base64
+from datetime import datetime, timedelta
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
-import base64
-import os
 
 
 class User(db.Model):

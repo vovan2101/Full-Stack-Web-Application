@@ -1,13 +1,11 @@
-import json
-from lib2to3.pgen2 import token
-from locale import currency
-from app import app,db, basic_auth, token_auth
-from flask import jsonify, request, make_response, flash
-from app.models import Articles, User, check_password_hash
+from . import bp as auth
+from flask import jsonify, request, flash
+from .models import User
+from .http_auth import basic_auth, token_auth
 
 
 
-@app.route('/users', methods = ['POST', 'GET'])
+@auth.route('/users', methods = ['POST', 'GET'])
 def create_user():
     data = request.json
     for field in ['username', 'email', 'password']:
@@ -27,7 +25,7 @@ def create_user():
         return jsonify(new_user.to_dict())
 
 
-@app.route('/token', methods = ['POST', 'GET'])
+@auth.route('/token', methods = ['POST', 'GET'])
 @basic_auth.login_required
 def get_token():
     user = basic_auth.current_user()
@@ -35,7 +33,7 @@ def get_token():
     return jsonify({'token': token})
   
 
-@app.route('/users/<int:id>', methods = ["PUT"])
+@auth.route('/users/<int:id>', methods = ["PUT"])
 @token_auth.login_required
 def update_user(id):
     current_user = token_auth.current_user()
@@ -47,7 +45,7 @@ def update_user(id):
     return jsonify(user.to_dict())
 
 
-@app.route('/users/<int:id>', methods = ['DELETE'])
+@auth.route('/users/<int:id>', methods = ['DELETE'])
 @token_auth.login_required
 def delete_user(id):
     current_user = token_auth.current_user()
@@ -58,7 +56,7 @@ def delete_user(id):
     return jsonify({'success': f'{user_to_delete.username} has been deleted'})
 
 
-@app.route('/me')
+@auth.route('/me')
 @token_auth.login_required
 def me():
     return token_auth.current_user().to_dict()
