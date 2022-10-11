@@ -18,4 +18,4 @@ app.register_blueprint(auth)
 from app.blueprints.blog import bp as blog
 app.register_blueprint(blog)
 
-from app import routes
+

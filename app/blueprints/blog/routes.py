@@ -4,7 +4,6 @@ from flask import jsonify, request
 from .models import Articles
 
 
-
 @blog.route('/get', methods = ['GET'])
 def get_articles():
     articles = Articles.query.all()
